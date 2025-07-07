@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>سجل الحجوزات - شاليه الوريف</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        /* تعميم box-sizing ليشمل جميع العناصر */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Tahoma', Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 20px;
+            margin-bottom: 30px;
+            color: #333;
+            font-weight: 700;
+        }
+
+        #searchContainer {
+            width: 95%;
+            margin: 10px auto 20px;
+        }
+
+        #searchContainer select,
+        #searchContainer input {
+            padding: 8px 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin: 5px;
+        }
+
+        table {
+            width: 100%;
+            margin: 0 auto 40px;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 10px 8px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 16px;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button {
+            padding: 6px 10px;
+            margin: 0 3px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-edit {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background-color: #218838;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
+        .status-paid {
+            color: green;
+            font-weight: bold;
+        }
+
+        .status-notpaid {
+            color: red;
+            font-weight: bold;
+        }
+
+        .status-deposit {
+            color: blue;
+            font-weight: bold;
+        }
+
+        .status-nodeposit {
+            color: #aaa;
+            font-weight: bold;
+        }
+
+        #editModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #editModalContent {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 480px;
+            width: 90%;
+            text-align: right;
+            direction: rtl;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        #editModalContent input,
+        #editModalContent select,
+        #editModalContent textarea {
+            width: 100%;
+            margin: 8px 0;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        #editModalContent button {
+            padding: 10px 20px;
+            margin-top: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+
+        #editSaveBtn {
+            background-color: #007bff;
+        }
+
+        #editSaveBtn:hover {
+            background-color: #0056b3;
+        }
+
+        #editCancelBtn {
+            background-color: #dc3545;
+            margin-left: 10px;
+        }
+
+        #editCancelBtn:hover {
+            background-color: #a71d2a;
+        }
+
+        nav {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        nav a {
+            margin: 10px 12px;
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+
+        nav a:hover {
+            background-color: #0056b3;
+        }
+
+        @media (max-width: 768px) {
+            #searchContainer select,
+            #searchContainer input {
+                width: 90%;
+            }
+
+            table,
+            th,
+            td {
+                font-size: 14px;
+            }
+
+            nav a {
+                width: 90%;
+                margin: 6px auto;
+            }
+        }
+    </style>
+</head>
+
+<body onload="checkAuth(); loadBookings();">
+
+    <h1>سجل الحجوزات</h1>
+
+    <!-- البحث المتقدم -->
+    <div id="searchContainer">
+        <select id="searchType" onchange="filterBookings()">
+            <option value="all">بحث شامل</option>
+            <option value="fullName">الاسم</option>
+            <option value="phone">رقم الهاتف</option>
+            <option value="bookingDate">تاريخ الحجز</option>
+            <option value="bookingPeriod">نوع الحجز</option>
+        </select>
+
+        <input type="text" id="searchInput" placeholder="أدخل كلمة البحث..." oninput="filterBookings()"
+            aria-label="حقل البحث">
+    </div>
+
+    <table id="bookingsTable" aria-describedby="سجل الحجوزات">
+        <thead>
+            <tr>
+                <th>الاسم الكامل</th>
+                <th>رقم الهاتف</th>
+                <th>تاريخ الحجز</th>
+                <th>نوع الحجز</th>
+                <th>عدد الأشخاص</th>
+                <th>المبلغ المدفوع</th>
+                <th>مبلغ التأمين</th>
+                <th>المبلغ الكلي</th>
+                <th>طريقة الدفع</th>
+                <th>حالة الدفع</th>
+                <th>حالة التأمين</th>
+                <th>ملاحظات</th>
+                <th>إجراءات</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <nav>
+        <a href="index.html">الصفحة الرئيسية</a>
+    </nav>
+
+    <div id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div id="editModalContent">
+            <h3 id="editModalTitle">تعديل الحجز</h3>
+            <form id="editForm" onsubmit="return saveEdit(event)">
+                <input type="hidden" id="editId" />
+                <input type="text" id="editFullName" placeholder="الاسم الكامل" required aria-label="الاسم الكامل" />
+                <input type="tel" id="editPhone" placeholder="رقم الهاتف" required pattern="[0-9]{7,15}"
+                    aria-label="رقم الهاتف" />
+                <input type="date" id="editBookingDate" required aria-label="تاريخ الحجز" />
+                <select id="editBookingPeriod" required aria-label="نوع الحجز">
+                    <option value="" disabled>اختر نوع الحجز</option>
+                    <option value="نصف يوم صباح">نصف يوم صباح</option>
+                    <option value="نصف يوم مساء">نصف يوم مساء</option>
+                    <option value="يوم كامل">يوم كامل</option>
+                    <option value="يوم كامل مع مبيت">يوم كامل مع مبيت</option>
+                </select>
+                <input type="number" id="editNumPeople" placeholder="عدد الأشخاص" min="1" required aria-label="عدد الأشخاص" />
+                <input type="number" id="editAmountPaid" placeholder="المبلغ المدفوع" min="0" required
+                    aria-label="المبلغ المدفوع" step="0.01" />
+                <input type="number" id="editDepositAmount" placeholder="مبلغ التأمين" min="0" required
+                    aria-label="مبلغ التأمين" step="0.01" />
+                <select id="editPaymentMethod" required aria-label="طريقة الدفع">
+                    <option value="" disabled>طريقة الدفع</option>
+                    <option value="نقدًا">نقدًا</option>
+                    <option value="تحويل بنكي">تحويل بنكي</option>
+                    <option value="عبر الإنترنت">عبر الإنترنت</option>
+                </select>
+                <textarea id="editNotes" placeholder="ملاحظات إضافية" aria-label="ملاحظات إضافية"></textarea>
+
+                <button type="submit" id="editSaveBtn">حفظ التعديلات</button>
+                <button type="button" id="editCancelBtn" onclick="closeEditModal()">إلغاء</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function checkAuth() {
+            const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            if (!user) {
+                window.location.href = 'login.html';
+                return false;
+            }
+            if (user.role === 'report') {
+                alert('ليس لديك صلاحية مشاهدة الحجوزات');
+                window.location.href = 'index.html';
+                return false;
+            }
+            return true;
+        }
+
+        let bookings = [];
+
+        function loadBookings() {
+            bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+            renderTableRows(bookings);
+        }
+
+        function renderTableRows(bookingsToRender) {
+            const tbody = document.querySelector('#bookingsTable tbody');
+            tbody.innerHTML = '';
+
+            if (bookingsToRender.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="13">لا توجد حجوزات لعرضها</td></tr>';
+                return;
+            }
+
+            bookingsToRender.forEach((b) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHtml(b.fullName)}</td>
+                    <td>${escapeHtml(b.phone)}</td>
+                    <td>${escapeHtml(b.bookingDate)}</td>
+                    <td>${escapeHtml(b.bookingPeriod)}</td>
+                    <td>${b.numPeople}</td>
+                    <td>${b.amountPaid.toFixed(2)}</td>
+                    <td>${b.depositAmount.toFixed(2)}</td>
+                    <td>${b.totalAmount.toFixed(2)}</td>
+                    <td>${escapeHtml(b.paymentMethod)}</td>
+                    <td class="${b.statusPaid ? 'status-paid' : 'status-notpaid'}">${b.statusPaid ? 'مدفوع' : 'غير مدفوع'}</td>
+                    <td class="${b.statusDeposit ? 'status-deposit' : 'status-nodeposit'}">${b.statusDeposit ? 'مدفوع' : 'غير مدفوع'}</td>
+                    <td>${escapeHtml(b.notes || '-')}</td>
+                    <td>
+                        <button class="btn-edit" onclick="openEditModal(${b.id})">تعديل</button>
+                        <button class="btn-delete" onclick="deleteBooking(${b.id})">حذف</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterBookings() {
+            const searchType = document.getElementById('searchType').value;
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            if (!searchTerm) {
+                renderTableRows(bookings);
+                return;
+            }
+
+            const filtered = bookings.filter(b => {
+                switch (searchType) {
+                    case 'fullName':
+                        return b.fullName.toLowerCase().includes(searchTerm);
+                    case 'phone':
+                        return b.phone.toLowerCase().includes(searchTerm);
+                    case 'bookingDate':
+                        return b.bookingDate.toLowerCase().includes(searchTerm);
+                    case 'bookingPeriod':
+                        return b.bookingPeriod.toLowerCase().includes(searchTerm);
+                    default:
+                        return b.fullName.toLowerCase().includes(searchTerm) ||
+                            b.phone.toLowerCase().includes(searchTerm) ||
+                            b.bookingDate.toLowerCase().includes(searchTerm) ||
+                            b.bookingPeriod.toLowerCase().includes(searchTerm);
+                }
+            });
+
+            renderTableRows(filtered);
+
+            if (filtered.length === 0) {
+                const tbody = document.querySelector('#bookingsTable tbody');
+                tbody.innerHTML = '<tr><td colspan="13">لا توجد نتائج مطابقة للبحث.</td></tr>';
+            }
+        }
+
+        function openEditModal(id) {
+            const booking = bookings.find(b => b.id === id);
+            if (!booking) {
+                alert('الحجز غير موجود');
+                return;
+            }
+
+            document.getElementById('editId').value = booking.id;
+            document.getElementById('editFullName').value = booking.fullName;
+            document.getElementById('editPhone').value = booking.phone;
+            document.getElementById('editBookingDate').value = booking.bookingDate;
+            document.getElementById('editBookingPeriod').value = booking.bookingPeriod;
+            document.getElementById('editNumPeople').value = booking.numPeople;
+            document.getElementById('editAmountPaid').value = booking.amountPaid.toFixed(2);
+            document.getElementById('editDepositAmount').value = booking.depositAmount.toFixed(2);
+            document.getElementById('editPaymentMethod').value = booking.paymentMethod;
+            document.getElementById('editNotes').value = booking.notes;
+
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function saveEdit(event) {
+            event.preventDefault();
+
+            const id = Number(document.getElementById('editId').value);
+            const fullName = document.getElementById('editFullName').value.trim();
+            const phone = document.getElementById('editPhone').value.trim();
+            const bookingDate = document.getElementById('editBookingDate').value;
+            const bookingPeriod = document.getElementById('editBookingPeriod').value;
+            const numPeople = parseInt(document.getElementById('editNumPeople').value);
+            const amountPaid = parseFloat(document.getElementById('editAmountPaid').value) || 0;
+            const depositAmount = parseFloat(document.getElementById('editDepositAmount').value) || 0;
+            const paymentMethod = document.getElementById('editPaymentMethod').value;
+            const notes = document.getElementById('editNotes').value.trim();
+
+            const conflict = bookings.find(b => b.bookingDate === bookingDate && b.bookingPeriod === bookingPeriod && b.id !== id);
+            if (conflict) {
+                alert('عذرًا، هذا الوقت محجوز مسبقًا.');
+                return false;
+            }
+
+            const bookingIndex = bookings.findIndex(b => b.id === id);
+            if (bookingIndex === -1) {
+                alert('الحجز غير موجود');
+                return false;
+            }
+
+            bookings[bookingIndex] = {
+                id,
+                fullName,
+                phone,
+                bookingDate,
+                bookingPeriod,
+                numPeople,
+                amountPaid,
+                depositAmount,
+                totalAmount: amountPaid + depositAmount,
+                paymentMethod,
+                notes,
+                statusPaid: amountPaid > 0,
+                statusDeposit: depositAmount > 0
+            };
+
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+            alert('تم حفظ التعديلات بنجاح');
+            closeEditModal();
+            loadBookings();
+
+            return false;
+        }
+
+        function deleteBooking(id) {
+            if (confirm('هل أنت متأكد من حذف هذا الحجز؟')) {
+                bookings = bookings.filter(b => b.id !== id);
+                localStorage.setItem('bookings', JSON.stringify(bookings));
+                loadBookings();
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+
+</body>
+
+</html>

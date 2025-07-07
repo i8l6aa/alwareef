@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>إضافة حجز جديد - شاليه الوريف</title>
+    <style>
+        body {
+            font-family: 'Tahoma', Arial, sans-serif;
+            background-color: #f9f9f9;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            color: #333;
+            font-weight: 700;
+        }
+
+        form input,
+        form select,
+        form textarea,
+        form button {
+            width: 90%;
+            margin: 10px auto;
+            display: block;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        form button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+            border-radius: 10px;
+        }
+
+        form button:hover {
+            background-color: #0056b3;
+        }
+
+        nav {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        nav a,
+        nav button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s ease;
+            min-width: 140px;
+            text-align: center;
+        }
+
+        nav a:hover,
+        nav button:hover {
+            background-color: #0056b3;
+        }
+
+        @media (max-width: 768px) {
+
+            form input,
+            form select,
+            form textarea,
+            form button {
+                width: 95%;
+            }
+
+            nav {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            nav a,
+            nav button {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+
+<body onload="checkAuth()">
+
+    <h1>إضافة حجز جديد</h1>
+
+    <form id="bookingForm" onsubmit="return addBooking(event)">
+        <input type="text" id="fullName" placeholder="الاسم الكامل" required />
+        <input type="tel" id="phone" placeholder="رقم الهاتف" required pattern="[0-9]{7,15}" />
+        <input type="date" id="bookingDate" required />
+
+        <select id="bookingPeriod" required>
+            <option value="" disabled selected>اختر نوع الحجز</option>
+            <option value="نصف يوم صباح">نصف يوم صباح</option>
+            <option value="نصف يوم مساء">نصف يوم مساء</option>
+            <option value="يوم كامل">يوم كامل</option>
+            <option value="يوم كامل مع مبيت">يوم كامل مع مبيت</option>
+        </select>
+
+        <input type="number" id="numPeople" placeholder="عدد الأشخاص" min="1" required />
+        <input type="number" id="amountPaid" placeholder="المبلغ المدفوع" min="0" required />
+        <input type="number" id="depositAmount" placeholder="مبلغ التأمين" min="0" required />
+
+        <select id="paymentMethod" required>
+            <option value="" disabled selected>طريقة الدفع</option>
+            <option value="نقدًا">نقدًا</option>
+            <option value="تحويل بنكي">تحويل بنكي</option>
+            <option value="عبر الإنترنت">عبر الإنترنت</option>
+        </select>
+
+        <textarea id="notes" placeholder="ملاحظات إضافية"></textarea>
+
+        <button type="submit">إضافة الحجز</button>
+    </form>
+
+    <nav>
+        <a href="index.html">الصفحة الرئيسية</a>
+        <button onclick="logout()">تسجيل الخروج</button>
+    </nav>
+
+    <script>
+        function checkAuth() {
+            const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            if (!user) {
+                window.location.href = 'login.html';
+                return;
+            }
+            if (user.role !== 'admin' && user.role !== 'booking') {
+                alert('ليس لديك صلاحية الوصول لهذه الصفحة.');
+                window.location.href = 'index.html';
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('loggedInUser');
+            window.location.href = 'login.html';
+        }
+
+        function addBooking(event) {
+            event.preventDefault();
+
+            const fullName = document.getElementById('fullName').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+            const bookingDate = document.getElementById('bookingDate').value;
+            const bookingPeriod = document.getElementById('bookingPeriod').value;
+            const numPeople = document.getElementById('numPeople').value;
+            const amountPaid = document.getElementById('amountPaid').value;
+            const depositAmount = document.getElementById('depositAmount').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const notes = document.getElementById('notes').value.trim();
+
+            if (!fullName || !phone || !bookingDate || !bookingPeriod || !numPeople || !amountPaid || !depositAmount || !paymentMethod) {
+                alert('يرجى تعبئة جميع الحقول المطلوبة.');
+                return;
+            }
+
+            if (!/^\d{7,15}$/.test(phone)) {
+                alert('يرجى إدخال رقم هاتف صالح يتكون من 7 إلى 15 رقمًا.');
+                return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            if (bookingDate < today) {
+                alert('يرجى اختيار تاريخ حجز صالح وليس في الماضي.');
+                return;
+            }
+
+            const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+            const conflict = bookings.find(b => b.bookingDate === bookingDate && b.bookingPeriod === bookingPeriod);
+
+            if (conflict) {
+                alert('عذرًا، هذا الوقت محجوز مسبقًا.');
+                return;
+            }
+
+            const totalAmount = parseFloat(amountPaid) + parseFloat(depositAmount);
+
+            const newBooking = {
+                id: Date.now(),
+                fullName,
+                phone,
+                bookingDate,
+                bookingPeriod,
+                numPeople: parseInt(numPeople),
+                amountPaid: parseFloat(amountPaid),
+                depositAmount: parseFloat(depositAmount),
+                totalAmount,
+                paymentMethod,
+                notes,
+                statusPaid: parseFloat(amountPaid) > 0,
+                statusDeposit: parseFloat(depositAmount) > 0
+            };
+
+            bookings.push(newBooking);
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+
+            alert(`تمت إضافة الحجز بنجاح!\nالاسم: ${fullName}\nالتاريخ: ${bookingDate}\nنوع الحجز: ${bookingPeriod}`);
+            document.getElementById('bookingForm').reset();
+        }
+    </script>
+
+</body>
+
+</html>

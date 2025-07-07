@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>لوحة التحكم - شاليه الوريف</title>
+    <style>
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            background-color: #f9f9f9;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+        .filters {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .filters label {
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .filters select {
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 15px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            max-width: 700px;
+            margin: 0 auto 30px;
+        }
+        .stat-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+        .stat-box h2 {
+            color: #007bff;
+            margin: 0 0 10px;
+            font-size: 20px;
+        }
+        .stat-box p {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+        }
+        nav {
+            margin-top: 30px;
+        }
+        nav a {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: background-color 0.3s ease;
+            font-weight: bold;
+        }
+        nav a:hover {
+            background-color: #1e7e34;
+        }
+        @media (max-width: 768px) {
+            .stat-box h2 {
+                font-size: 18px;
+            }
+            .stat-box p {
+                font-size: 16px;
+            }
+            .filters {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body onload="checkAuth(); initializeFilters();">
+
+<h1>لوحة التحكم الرئيسية</h1>
+
+<div class="filters">
+    <div>
+        <label for="selectYear">السنة:</label>
+        <select id="selectYear"></select>
+    </div>
+    <div>
+        <label for="selectMonth">الشهر:</label>
+        <select id="selectMonth"></select>
+    </div>
+</div>
+
+<div class="stats">
+    <div class="stat-box">
+        <h2>إجمالي الإيرادات</h2>
+        <p id="totalRevenue">0.00 ريال</p>
+    </div>
+    <div class="stat-box">
+        <h2>عدد الأيام المحجوزة</h2>
+        <p id="bookedDaysCount">0 يوم</p>
+    </div>
+    <div class="stat-box">
+        <h2>حجوزات يوم كامل</h2>
+        <p id="fullDayCount">0</p>
+    </div>
+    <div class="stat-box">
+        <h2>نصف يوم صباح</h2>
+        <p id="halfDayMorningCount">0</p>
+    </div>
+    <div class="stat-box">
+        <h2>نصف يوم مساء</h2>
+        <p id="halfDayEveningCount">0</p>
+    </div>
+</div>
+
+<nav>
+    <a href="index.html">الصفحة الرئيسية</a>
+</nav>
+
+<script>
+function checkAuth() {
+    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+    if (!user) {
+        window.location.href = 'login.html';
+    }
+}
+
+function initializeFilters() {
+    const selectYear = document.getElementById('selectYear');
+    const selectMonth = document.getElementById('selectMonth');
+
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
+    for (let y = currentYear - 5; y <= currentYear + 1; y++) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        selectYear.appendChild(option);
+    }
+
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+                        "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+    monthNames.forEach((name, index) => {
+        const option = document.createElement('option');
+        option.value = index + 1;
+        option.textContent = name;
+        if (index + 1 === currentMonth) option.selected = true;
+        selectMonth.appendChild(option);
+    });
+
+    selectYear.addEventListener('change', loadStats);
+    selectMonth.addEventListener('change', loadStats);
+
+    loadStats();
+}
+
+function loadStats() {
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const year = parseInt(document.getElementById('selectYear').value);
+    const month = parseInt(document.getElementById('selectMonth').value);
+
+    const filtered = bookings.filter(b => {
+        const [y, m] = b.bookingDate.split('-').map(Number);
+        return y === year && m === month;
+    });
+
+    const totalRevenue = filtered.reduce((sum, b) => sum + (b.amountPaid + b.depositAmount), 0);
+    const bookedDays = new Set(filtered.map(b => b.bookingDate)).size;
+
+    let fullDayCount = 0, morningCount = 0, eveningCount = 0;
+    filtered.forEach(b => {
+        if (b.bookingPeriod === "يوم كامل" || b.bookingPeriod === "يوم كامل مع مبيت") fullDayCount++;
+        if (b.bookingPeriod === "نصف يوم صباح") morningCount++;
+        if (b.bookingPeriod === "نصف يوم مساء") eveningCount++;
+    });
+
+    document.getElementById('totalRevenue').textContent = `${totalRevenue.toFixed(2)} ريال`;
+    document.getElementById('bookedDaysCount').textContent = `${bookedDays} يوم`;
+    document.getElementById('fullDayCount').textContent = fullDayCount;
+    document.getElementById('halfDayMorningCount').textContent = morningCount;
+    document.getElementById('halfDayEveningCount').textContent = eveningCount;
+}
+</script>
+
+</body>
+</html>

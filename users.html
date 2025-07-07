@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>إدارة المستخدمين - شاليه الوريف</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Tajawal', Tahoma, Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+            color: #333;
+            text-align: center;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            border-collapse: collapse;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: 700;
+        }
+        tr:hover {
+            background-color: #f1f8ff;
+        }
+        button {
+            padding: 8px 14px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            color: white;
+        }
+        .btn-edit {
+            background-color: #ffc107;
+        }
+        .btn-edit:hover {
+            background-color: #e0a800;
+        }
+        .btn-delete {
+            background-color: #dc3545;
+        }
+        .btn-delete:hover {
+            background-color: #a71d2a;
+        }
+        .btn-add {
+            background-color: #28a745;
+            margin-bottom: 20px;
+            font-size: 18px;
+            padding: 12px 30px;
+        }
+        .btn-add:hover {
+            background-color: #218838;
+        }
+        #userForm {
+            max-width: 400px;
+            margin: 0 auto 30px auto;
+            background: white;
+            padding: 25px 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            display: none;
+            box-sizing: border-box;
+            text-align: right;
+        }
+        #userForm label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-weight: 600;
+            color: #007bff;
+        }
+        #userForm input, #userForm select {
+            width: 100%;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 1.5px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            direction: rtl;
+            text-align: right;
+            transition: border-color 0.3s ease;
+        }
+        #userForm input:focus, #userForm select:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+        }
+        #userForm button[type="submit"] {
+            margin-top: 20px;
+            width: 100%;
+            padding: 14px 0;
+            font-size: 18px;
+            background-color: #007bff;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.5);
+            transition: background-color 0.3s ease;
+        }
+        #userForm button[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+        #userForm button[type="button"] {
+            margin-top: 10px;
+            background-color: #6c757d;
+            box-shadow: 0 3px 8px rgba(108, 117, 125, 0.6);
+        }
+        #userForm button[type="button"]:hover {
+            background-color: #5a6268;
+        }
+        #userError {
+            color: #d93025;
+            margin-top: 10px;
+            min-height: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>إدارة المستخدمين</h1>
+
+    <button class="btn-add" onclick="showAddUserForm()">إضافة مستخدم جديد</button>
+
+    <table id="usersTable" aria-label="جدول المستخدمين">
+        <thead>
+            <tr>
+                <th>اسم المستخدم</th>
+                <th>الدور</th>
+                <th>الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- المستخدمون سيُضافون هنا ديناميكياً -->
+        </tbody>
+    </table>
+
+    <form id="userForm" onsubmit="return submitUser(event)" aria-label="نموذج إضافة/تعديل مستخدم">
+        <label for="newUsername">اسم المستخدم:</label>
+        <input type="text" id="newUsername" name="newUsername" autocomplete="off" required />
+
+        <label for="newPassword">كلمة المرور:</label>
+        <input type="password" id="newPassword" name="newPassword" required minlength="4" />
+
+        <label for="newRole">الدور:</label>
+        <select id="newRole" name="newRole" required>
+            <option value="" disabled selected>اختر الدور</option>
+            <option value="admin">مشرف</option>
+            <option value="booking">موظف الحجوزات</option>
+            <option value="report">موظف التقارير</option>
+        </select>
+
+        <div id="userError" role="alert" aria-live="assertive"></div>
+
+        <button type="submit">حفظ المستخدم</button>
+        <button type="button" onclick="hideAddUserForm()">إلغاء</button>
+    </form>
+
+<script>
+    // متغير لتعقب المستخدم الجاري تعديله
+    let editingIndex = null;
+
+    // تحميل المستخدمين من التخزين أو تهيئتهم
+    function loadUsers() {
+        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = ''; // تنظيف الجدول
+
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">لا يوجد مستخدمون</td></tr>';
+            return;
+        }
+
+        users.forEach((user, index) => {
+            const tr = document.createElement('tr');
+
+            tr.innerHTML = `
+                <td>${escapeHtml(user.username)}</td>
+                <td>${escapeHtml(roleToArabic(user.role))}</td>
+                <td>
+                    <button class="btn-edit" onclick="showEditUserForm(${index})" aria-label="تعديل المستخدم ${user.username}">تعديل</button>
+                    <button class="btn-delete" onclick="deleteUser(${index})" aria-label="حذف المستخدم ${user.username}">حذف</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // تعريب الأدوار
+    function roleToArabic(role) {
+        switch(role) {
+            case 'admin': return 'مشرف';
+            case 'booking': return 'موظف الحجوزات';
+            case 'report': return 'موظف التقارير';
+            default: return role;
+        }
+    }
+
+    // دالة الهروب من النص لتجنب XSS (آمنة)
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // إظهار نموذج إضافة مستخدم جديد
+    function showAddUserForm() {
+        editingIndex = null;
+        document.getElementById('userForm').style.display = 'block';
+        document.getElementById('newUsername').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('newRole').value = '';
+        document.getElementById('userError').textContent = '';
+        document.querySelector('#userForm button[type="submit"]').textContent = 'حفظ المستخدم';
+        document.getElementById('newUsername').focus();
+    }
+
+    // إظهار نموذج تعديل مستخدم موجود
+    function showEditUserForm(index) {
+        const users = JSON.parse(localStorage.getItem('users') || '[]');
+        const user = users[index];
+
+        editingIndex = index;
+
+        document.getElementById('userForm').style.display = 'block';
+        document.getElementById('newUsername').value = user.username;
+        document.getElementById('newPassword').value = user.password;
+        document.getElementById('newRole').value = user.role;
+        document.getElementById('userError').textContent = '';
+        document.querySelector('#userForm button[type="submit"]').textContent = 'تحديث المستخدم';
+        document.getElementById('newUsername').focus();
+    }
+
+    // إخفاء النموذج
+    function hideAddUserForm() {
+        document.getElementById('userForm').style.display = 'none';
+        document.getElementById('userError').textContent = '';
+        editingIndex = null;
+    }
+
+    // حذف مستخدم مع تأكيد
+    function deleteUser(index) {
+        if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+        users.splice(index, 1);
+        localStorage.setItem('users', JSON.stringify(users));
+        alert('تم حذف المستخدم بنجاح');
+        loadUsers();
+        hideAddUserForm();
+    }
+
+    // إضافة أو تعديل المستخدم
+    function submitUser(event) {
+        event.preventDefault();
+
+        const username = document.getElementById('newUsername').value.trim();
+        const password = document.getElementById('newPassword').value.trim();
+        const role = document.getElementById('newRole').value;
+        const errorMsg = document.getElementById('userError');
+
+        errorMsg.textContent = '';
+
+        if (!username || !password || !role) {
+            errorMsg.textContent = 'جميع الحقول مطلوبة';
+            return false;
+        }
+        if (password.length < 4) {
+            errorMsg.textContent = 'كلمة المرور يجب أن تحتوي على 4 خانات على الأقل';
+            return false;
+        }
+
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+
+        // تحقق من تكرار اسم المستخدم مع تجاهل المستخدم الجاري تعديله
+        const usernameExists = users.some((u, idx) => u.username.toLowerCase() === username.toLowerCase() && idx !== editingIndex);
+        if (usernameExists) {
+            errorMsg.textContent = 'اسم المستخدم موجود مسبقاً';
+            return false;
+        }
+
+        if (editingIndex === null) {
+            // إضافة مستخدم جديد
+            users.push({ username, password, role });
+            alert('تمت إضافة المستخدم بنجاح');
+        } else {
+            // تحديث مستخدم موجود
+            users[editingIndex] = { username, password, role };
+            alert('تم تحديث بيانات المستخدم بنجاح');
+        }
+
+        localStorage.setItem('users', JSON.stringify(users));
+        loadUsers();
+        hideAddUserForm();
+        return false;
+    }
+
+    // تحميل المستخدمين عند تحميل الصفحة
+    window.onload = () => {
+        // إذا لم يكن هناك مستخدمون، أضف المستخدمين الافتراضيين
+        if (!localStorage.getItem('users')) {
+            const defaultUsers = [
+                { username: 'admin', password: '1234', role: 'admin' },
+                { username: 'booking', password: '1234', role: 'booking' },
+                { username: 'report', password: '1234', role: 'report' }
+            ];
+            localStorage.setItem('users', JSON.stringify(defaultUsers));
+        }
+        loadUsers();
+    };
+</script>
+
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>الصفحة الرئيسية - شاليه الوريف</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --btn-padding: 14px 24px;
+            --btn-radius: 8px;
+            --btn-font-weight: bold;
+            --btn-color: white;
+        }
+        body {
+            font-family: Arial, Tahoma, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+            text-align: center;
+            direction: rtl;
+        }
+        h1 {
+            margin-bottom: 30px;
+            color: #333;
+            font-weight: 700;
+        }
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        nav a, nav button {
+            display: inline-block;
+            margin: 10px 5px;
+            padding: var(--btn-padding);
+            background-color: var(--primary-color);
+            color: var(--btn-color);
+            border-radius: var(--btn-radius);
+            text-decoration: none;
+            font-weight: var(--btn-font-weight);
+            cursor: pointer;
+            border: none;
+            transition: background-color 0.3s ease;
+            min-width: 120px;
+        }
+        nav a:hover, nav button:hover {
+            background-color: var(--primary-hover);
+        }
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                align-items: center;
+            }
+            nav a, nav button {
+                width: 90%;
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body onload="checkAuth()">
+
+    <main>
+        <h1 id="welcomeMsg">مرحبًا بك في نظام شاليه الوريف</h1>
+
+        <nav id="mainNav" aria-label="القائمة الرئيسية">
+            <!-- روابط القائمة ستُملأ بواسطة جافاسكريبت -->
+        </nav>
+    </main>
+
+<script>
+    // دالة تسجيل الخروج مع تأكيد المستخدم
+    function logout() {
+        if (confirm('هل تريد فعلاً تسجيل الخروج؟')) {
+            sessionStorage.removeItem('loggedInUser');
+            window.location.href = 'login.html';
+        }
+    }
+
+    // دالة لإنشاء روابط القائمة حسب الدور
+    function generateNavLinks(role) {
+        const commonLinks = `
+            <a href="dashboard.html" aria-label="لوحة التحكم">لوحة التحكم</a>
+            <a href="add-booking.html" aria-label="إضافة حجز">إضافة حجز</a>
+            <a href="bookings.html" aria-label="سجل الحجوزات">سجل الحجوزات</a>
+            <a href="reports.html" aria-label="التقارير">التقارير</a>
+            <a href="calendar.html" aria-label="التقويم">التقويم</a>
+        `;
+
+        const adminLink = `<a href="users.html" aria-label="إدارة المستخدمين">إدارة المستخدمين</a>`;
+
+        return (role === 'admin') ? commonLinks + adminLink : commonLinks;
+    }
+
+    // دالة التحقق من تسجيل الدخول وتهيئة الصفحة
+    function checkAuth() {
+        const userData = sessionStorage.getItem('loggedInUser');
+
+        if (!userData) {
+            alert('يجب تسجيل الدخول للمتابعة.');
+            window.location.href = 'login.html';
+            return;
+        }
+
+        let user;
+        try {
+            user = JSON.parse(userData);
+        } catch {
+            alert('حدث خطأ في بيانات المستخدم. يرجى تسجيل الدخول مجدداً.');
+            sessionStorage.removeItem('loggedInUser');
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const nav = document.getElementById('mainNav');
+        const welcomeMsg = document.getElementById('welcomeMsg');
+
+        // رسالة ترحيب باسم المستخدم، مع تحصين ضد النصوص الخبيثة (XSS)
+        welcomeMsg.textContent = `مرحبًا ${sanitizeText(user.username)}، أهلاً بك في نظام شاليه الوريف`;
+
+        // توليد روابط القائمة بناءً على الدور
+        nav.innerHTML = generateNavLinks(user.role || '');
+
+        // إضافة زر تسجيل الخروج منفصل لضمان سهولة الوصول
+        const logoutBtn = document.createElement('button');
+        logoutBtn.textContent = 'تسجيل الخروج';
+        logoutBtn.setAttribute('aria-label', 'تسجيل الخروج');
+        logoutBtn.addEventListener('click', logout);
+        nav.appendChild(logoutBtn);
+    }
+
+    // دالة بسيطة لتطهير النص من رموز قد تسبب مشاكل XSS
+    function sanitizeText(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+</script>
+
+</body>
+</html>

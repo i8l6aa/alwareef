@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>التقارير والإحصائيات - شاليه الوريف</title>
+    <style>
+        body {
+            font-family: 'Tahoma', Arial, sans-serif;
+            background: #f7f9fc;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        .reports-list {
+            max-width: 700px;
+            margin: 0 auto 40px;
+            text-align: right;
+        }
+        .report-item {
+            background: #fff;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            direction: rtl;
+        }
+        .report-desc {
+            font-size: 18px;
+            color: #444;
+            flex: 1;
+            padding-right: 15px;
+            text-align: right;
+        }
+        .report-actions button {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 8px 14px;
+            margin-left: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .report-actions button:hover {
+            background-color: #0056b3;
+        }
+        nav {
+            margin-top: 30px;
+        }
+        nav a, nav button {
+            display: inline-block;
+            padding: 10px 18px;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 16px;
+        }
+        nav a:hover, nav button:hover {
+            background-color: #1e7e34;
+        }
+        .filter-group {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        label {
+            font-weight: bold;
+            margin: 0 8px;
+            font-size: 16px;
+        }
+        select {
+            padding: 6px 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        #dailyDateInput {
+            padding: 6px 10px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            width: 160px;
+        }
+        @media (max-width: 768px) {
+            .report-item {
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: right;
+            }
+            .report-actions {
+                margin-top: 10px;
+                width: 100%;
+                display: flex;
+                justify-content: flex-start;
+            }
+            .report-actions button {
+                margin-left: 0;
+                margin-right: 10px;
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body onload="checkAuth(); initializeFilters();">
+
+    <h1>التقارير والإحصائيات</h1>
+
+    <div class="reports-list">
+
+        <!-- اختيار السنة والشهر لتقرير الإيرادات -->
+        <div class="filter-group">
+            <label for="yearSelect">السنة:</label>
+            <select id="yearSelect"></select>
+
+            <label for="monthSelect">الشهر:</label>
+            <select id="monthSelect"></select>
+
+            <button onclick="generateReport('revenue')">عرض تقرير الإيرادات الشهري</button>
+        </div>
+
+        <div class="report-item">
+            <div class="report-desc">تقرير الحجوزات المكتملة والملغاة</div>
+            <div class="report-actions">
+                <button onclick="generateReport('bookings')">عرض التقرير</button>
+                <button onclick="exportReport('bookings', 'pdf')">تحميل PDF</button>
+                <button onclick="exportReport('bookings', 'excel')">تحميل Excel</button>
+            </div>
+        </div>
+
+        <div class="report-item">
+            <div class="report-desc">تقرير إجمالي عدد الحجوزات</div>
+            <div class="report-actions">
+                <button onclick="generateReport('total')">عرض التقرير</button>
+                <button onclick="exportReport('total', 'pdf')">تحميل PDF</button>
+                <button onclick="exportReport('total', 'excel')">تحميل Excel</button>
+            </div>
+        </div>
+
+        <!-- اختيار التاريخ لتقرير الحجوزات اليومية -->
+        <div class="filter-group" style="margin-top:30px;">
+            <label for="dailyDateInput">اختر تاريخ:</label>
+            <input type="date" id="dailyDateInput" />
+
+            <button onclick="generateReport('daily')">عرض كشف الحجوزات اليومية</button>
+        </div>
+
+    </div>
+
+    <nav>
+        <a href="index.html">الصفحة الرئيسية</a>
+        <button onclick="logout()">تسجيل الخروج</button>
+    </nav>
+
+    <!-- مكتبات jsPDF و SheetJS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+    function checkAuth() {
+        const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+        if(!user) {
+            alert('يجب تسجيل الدخول للمتابعة.');
+            window.location.href = 'login.html';
+            return false;
+        }
+        return true;
+    }
+
+    function logout() {
+        sessionStorage.removeItem('loggedInUser');
+        window.location.href = 'login.html';
+    }
+
+    function initializeFilters() {
+        const yearSelect = document.getElementById('yearSelect');
+        const monthSelect = document.getElementById('monthSelect');
+        const dailyDateInput = document.getElementById('dailyDateInput');
+
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth() + 1;
+
+        // تعبئة قائمة السنوات (5 سنوات ماضية + سنة حالية + سنة قادمة)
+        for(let y = currentYear - 5; y <= currentYear + 1; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if(y === currentYear) opt.selected = true;
+            yearSelect.appendChild(opt);
+        }
+
+        // تعبئة قائمة الأشهر
+        const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+            "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+        monthNames.forEach((name, i) => {
+            const opt = document.createElement('option');
+            opt.value = i + 1;
+            opt.textContent = name;
+            if(i + 1 === currentMonth) opt.selected = true;
+            monthSelect.appendChild(opt);
+        });
+
+        // تعيين التاريخ الحالي في حقل التاريخ اليومي
+        dailyDateInput.value = new Date().toISOString().split('T')[0];
+    }
+
+    function generateReport(type) {
+        const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+
+        if(bookings.length === 0) {
+            alert('لا توجد بيانات للحجوزات');
+            return;
+        }
+
+        // Helper لتحويل التاريخ إلى نص بصيغة YYYY-MM-DD
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // تحويل التواريخ إلى نصوص بصيغة YYYY-MM-DD
+        bookings.forEach(b => {
+            if(typeof b.bookingDate === 'string') {
+                b.bookingDateStr = b.bookingDate;
+            } else {
+                b.bookingDateStr = formatDate(new Date(b.bookingDate));
+            }
+        });
+
+        let reportHtml = `<h2>تقرير: ${type}</h2><hr>`;
+
+        if(type === 'revenue') {
+            const year = parseInt(document.getElementById('yearSelect').value);
+            const month = parseInt(document.getElementById('monthSelect').value);
+
+            const filtered = bookings.filter(b => {
+                const d = new Date(b.bookingDateStr);
+                return d.getFullYear() === year && (d.getMonth() + 1) === month;
+            });
+
+            const totalRevenue = filtered.reduce((acc, b) => acc + (b.amountPaid || 0) + (b.depositAmount || 0), 0);
+            const bookedDaysSet = new Set(filtered.map(b => b.bookingDateStr));
+            const bookedDaysCount = bookedDaysSet.size;
+
+            const countByPeriod = { "نصف يوم صباح": 0, "نصف يوم مساء": 0, "يوم كامل": 0, "يوم كامل مع مبيت": 0 };
+            filtered.forEach(b => {
+                if(countByPeriod.hasOwnProperty(b.bookingPeriod)) {
+                    countByPeriod[b.bookingPeriod]++;
+                }
+            });
+
+            reportHtml += `<p>السنة: <strong>${year}</strong></p>`;
+            reportHtml += `<p>الشهر: <strong>${month}</strong></p>`;
+            reportHtml += `<p>إجمالي الإيرادات: <strong>${totalRevenue.toFixed(2)} ريال</strong></p>`;
+            reportHtml += `<p>عدد الأيام المحجوزة: <strong>${bookedDaysCount}</strong></p>`;
+            reportHtml += `<p>عدد الحجوزات حسب نوع الحجز:</p><ul>`;
+            for(const period in countByPeriod) {
+                reportHtml += `<li>${period}: <strong>${countByPeriod[period]}</strong></li>`;
+            }
+            reportHtml += `</ul>`;
+        }
+        else if(type === 'bookings') {
+            const completed = bookings.filter(b => !b.statusCancelled);
+            const cancelled = bookings.filter(b => b.statusCancelled);
+
+            reportHtml += `<p>عدد الحجوزات المكتملة: <strong>${completed.length}</strong></p>`;
+            reportHtml += `<p>عدد الحجوزات الملغاة: <strong>${cancelled.length}</strong></p>`;
+        }
+        else if(type === 'total') {
+            reportHtml += `<p>إجمالي عدد الحجوزات: <strong>${bookings.length}</strong></p>`;
+        }
+        else if(type === 'daily') {
+            const dateInput = document.getElementById('dailyDateInput').value;
+            if(!dateInput) {
+                alert('يرجى اختيار تاريخ صالح');
+                return;
+            }
+
+            const dailyBookings = bookings.filter(b => b.bookingDateStr === dateInput);
+
+            reportHtml += `<p>تاريخ التقرير: <strong>${dateInput}</strong></p>`;
+            reportHtml += `<p>عدد الحجوزات في هذا اليوم: <strong>${dailyBookings.length}</strong></p>`;
+
+            if(dailyBookings.length > 0) {
+                reportHtml += `<table border="1" cellspacing="0" cellpadding="8" style="margin: 10px auto; border-collapse: collapse; width: 90%; direction: rtl; text-align: center;">`;
+                reportHtml += `<thead style="background-color: #007bff; color: white;">
+                    <tr>
+                        <th>الاسم الكامل</th>
+                        <th>رقم الهاتف</th>
+                        <th>نوع الحجز</th>
+                        <th>المبلغ المدفوع</th>
+                        <th>مبلغ التأمين</th>
+                        <th>طريقة الدفع</th>
+                        <th>ملاحظات</th>
+                    </tr>
+                </thead><tbody>`;
+
+                dailyBookings.forEach(b => {
+                    reportHtml += `<tr>
+                        <td>${b.fullName}</td>
+                        <td>${b.phone}</td>
+                        <td>${b.bookingPeriod}</td>
+                        <td>${(b.amountPaid || 0).toFixed(2)}</td>
+                        <td>${(b.depositAmount || 0).toFixed(2)}</td>
+                        <td>${b.paymentMethod}</td>
+                        <td>${b.notes || '-'}</td>
+                    </tr>`;
+                });
+
+                reportHtml += `</tbody></table>`;
+            }
+        }
+        else {
+            reportHtml += `<p>نوع التقرير غير معروف.</p>`;
+        }
+
+        // عرض التقرير في نافذة جديدة للطباعة فقط عند الطلب وليس للتحميل
+        const printWindow = window.open('', '', 'width=900,height=700');
+        printWindow.document.write(`
+            <html lang="ar" dir="rtl">
+            <head>
+                <title>تقرير - شاليه الوريف</title>
+                <style>
+                    body { font-family: Tahoma, Arial, sans-serif; padding: 20px; direction: rtl; }
+                    h2 { color: #007bff; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+                    th { background-color: #007bff; color: white; }
+                </style>
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        window.onafterprint = function() { window.close(); };
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    }
+
+    async function exportReport(type, format) {
+        const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+        if (bookings.length === 0) {
+            alert('لا توجد بيانات للحجوزات');
+            return;
+        }
+
+        if (format === 'pdf') {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFontSize(16);
+            doc.text(`تقرير: ${type}`, 10, 20);
+
+            if(type === 'bookings') {
+                const completed = bookings.filter(b => !b.statusCancelled);
+                const cancelled = bookings.filter(b => b.statusCancelled);
+
+                doc.text(`عدد الحجوزات المكتملة: ${completed.length}`, 10, 30);
+                doc.text(`عدد الحجوزات الملغاة: ${cancelled.length}`, 10, 40);
+            }
+            else if(type === 'total') {
+                doc.text(`إجمالي عدد الحجوزات: ${bookings.length}`, 10, 30);
+            }
+            else {
+                doc.text(`نوع التقرير غير مدعوم للتحميل`, 10, 30);
+            }
+
+            doc.save(`تقرير_${type}.pdf`);
+        }
+        else if (format === 'excel') {
+            let worksheetData = [];
+
+            if(type === 'bookings') {
+                worksheetData = bookings.map(b => ({
+                    الاسم: b.fullName || '',
+                    الهاتف: b.phone || '',
+                    نوع_الحجز: b.bookingPeriod || '',
+                    المبلغ_المدفوع: b.amountPaid || 0,
+                    مبلغ_التأمين: b.depositAmount || 0,
+                    طريقة_الدفع: b.paymentMethod || '',
+                    ملاحظات: b.notes || '',
+                    الحالة: b.statusCancelled ? 'ملغاة' : 'مكتملة'
+                }));
+            }
+            else if(type === 'total') {
+                worksheetData = [{ تقرير: "إجمالي عدد الحجوزات", القيمة: bookings.length }];
+            }
+            else {
+                alert('نوع التقرير غير مدعوم للتحميل بصيغة Excel');
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "تقرير");
+
+            XLSX.writeFile(workbook, `تقرير_${type}.xlsx`);
+        }
+        else {
+            alert('صيغة التحميل غير مدعومة');
+        }
+    }
+</script>
+
+</body>
+</html>

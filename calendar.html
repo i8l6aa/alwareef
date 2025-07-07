@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>التقويم الشهري - شاليه الوريف</title>
+    <style>
+        body {
+            font-family: Tahoma, Arial, sans-serif;
+            background-color: #f9f9f9;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #calendarControls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        #calendarControls button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #calendarControls button:hover {
+            background-color: #0056b3;
+        }
+        #calendarControls label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        #calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            max-width: 700px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.1);
+        }
+        .header, .day {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-weight: bold;
+            min-height: 60px;
+            position: relative;
+        }
+        .header {
+            background-color: #007bff;
+            color: white;
+        }
+        .day.empty {
+            background-color: #f0f0f0;
+            border: none;
+        }
+        .booked {
+            background-color: #ffc107;
+            cursor: pointer;
+        }
+        .today {
+            background-color: #28a745;
+            color: white;
+        }
+        .booked.today {
+            background-color: #ff9800;
+        }
+        /* تفاصيل الحجز */
+        #bookingDetailsModal {
+            display: none;
+            position: fixed;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+        #bookingDetailsContent {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            text-align: right;
+            direction: rtl;
+        }
+        #closeModalBtn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        #closeModalBtn:hover {
+            background-color: #a71d2a;
+        }
+        nav {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        nav a, nav button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            min-width: 130px;
+            text-align: center;
+        }
+        nav a:hover, nav button:hover {
+            background-color: #1e7e34;
+        }
+        @media (max-width: 768px) {
+            #calendar {
+                max-width: 100%;
+            }
+            .day, .header {
+                min-height: 50px;
+                font-size: 14px;
+            }
+            nav {
+                flex-direction: column;
+                align-items: center;
+            }
+            nav a, nav button {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body onload="checkAuth(); initCalendar();">
+
+<h1>التقويم الشهري</h1>
+
+<div id="calendarControls">
+    <button onclick="changeMonth(-1)">&#9664; الشهر السابق</button>
+    <span id="currentMonthYear"></span>
+    <button onclick="changeMonth(1)">الشهر التالي &#9654;</button>
+    <button onclick="goToToday()">اليوم</button>
+    <label>
+        <input type="checkbox" id="filterUnbookedDays" onchange="renderCalendar(currentYear, currentMonth)">
+        عرض الأيام غير المحجوزة فقط
+    </label>
+</div>
+
+<div id="calendar"></div>
+
+<div id="bookingDetailsModal" onclick="closeBookingDetails(event)">
+    <div id="bookingDetailsContent" onclick="event.stopPropagation()">
+        <h3>تفاصيل الحجز</h3>
+        <ul id="bookingList"></ul>
+        <button id="closeModalBtn" onclick="closeBookingDetails()">إغلاق</button>
+    </div>
+</div>
+
+<nav>
+    <a href="index.html">الصفحة الرئيسية</a>
+    <button onclick="logout()">تسجيل الخروج</button>
+</nav>
+
+<script>
+let currentYear, currentMonth;
+const weekdays = ["الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"];
+
+function checkAuth() {
+    const user = JSON.parse(sessionStorage.getItem('loggedInUser'));
+    if (!user) {
+        window.location.href = 'login.html';
+    }
+}
+
+function logout() {
+    sessionStorage.removeItem('loggedInUser');
+    window.location.href = 'login.html';
+}
+
+function initCalendar() {
+    const today = new Date();
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth();
+    renderCalendar(currentYear, currentMonth);
+}
+
+function changeMonth(offset) {
+    currentMonth += offset;
+    if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+    } else if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+    }
+    renderCalendar(currentYear, currentMonth);
+}
+
+function goToToday() {
+    const today = new Date();
+    currentYear = today.getFullYear();
+    currentMonth = today.getMonth();
+    renderCalendar(currentYear, currentMonth);
+}
+
+function renderCalendar(year, month) {
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML = "";
+
+    const monthNames = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+    document.getElementById("currentMonthYear").textContent = `${monthNames[month]} ${year}`;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let firstDay = new Date(year, month, 1).getDay();
+    firstDay = firstDay === 0 ? 7 : firstDay; // الأحد = 7
+
+    weekdays.forEach(day => {
+        const header = document.createElement("div");
+        header.className = "header";
+        header.textContent = day;
+        calendar.appendChild(header);
+    });
+
+    for (let i = 0; i < firstDay - 1; i++) {
+        const emptyCell = document.createElement("div");
+        emptyCell.className = "day empty";
+        calendar.appendChild(emptyCell);
+    }
+
+    const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
+    const filterUnbookedOnly = document.getElementById('filterUnbookedDays').checked;
+    const today = new Date();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayBookings = bookings.filter(b => b.bookingDate === dayStr);
+        const isBooked = dayBookings.length > 0;
+
+        if (filterUnbookedOnly && isBooked) continue;
+
+        const dayCell = document.createElement("div");
+        dayCell.className = "day";
+        dayCell.textContent = day;
+
+        if (isBooked) {
+            dayCell.classList.add("booked");
+            dayCell.title = `يوجد ${dayBookings.length} حجز`;
+            dayCell.onclick = () => showBookingDetails(dayBookings, dayStr);
+        }
+
+        if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+            dayCell.classList.add("today");
+        }
+
+        calendar.appendChild(dayCell);
+    }
+}
+
+function showBookingDetails(bookings, date) {
+    const modal = document.getElementById("bookingDetailsModal");
+    const list = document.getElementById("bookingList");
+    list.innerHTML = `<li><strong>التاريخ:</strong> ${date}</li><hr>`;
+
+    bookings.forEach(b => {
+        list.innerHTML += `
+            <li>
+                <strong>الاسم:</strong> ${b.fullName}<br>
+                <strong>الهاتف:</strong> ${b.phone}<br>
+                <strong>نوع الحجز:</strong> ${b.bookingPeriod}<br>
+                <strong>عدد الأشخاص:</strong> ${b.numPeople}<br>
+                <strong>المبلغ المدفوع:</strong> ${b.amountPaid.toFixed(2)} ر.ع<br>
+                <strong>التأمين:</strong> ${b.depositAmount.toFixed(2)} ر.ع<br>
+                <strong>طريقة الدفع:</strong> ${b.paymentMethod}<br>
+                <strong>ملاحظات:</strong> ${b.notes || "-"}<br>
+                <hr>
+            </li>`;
+    });
+
+    modal.style.display = "flex";
+}
+
+function closeBookingDetails(event) {
+    if (!event || event.target.id === "bookingDetailsModal") {
+        document.getElementById("bookingDetailsModal").style.display = "none";
+    }
+}
+</script>
+
+</body>
+</html>
